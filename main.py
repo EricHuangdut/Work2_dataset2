@@ -1277,33 +1277,19 @@ class GaMultiobjective(object):
         #   print("front = ",front)
         distance = np.zeros(shape=(popsize,))  # 拥挤距离初始化为0
         for rank in front:  # 遍历每一层Pareto 解 rank为当前等级
-            # print("rank ",rank)
-            for i in range(len(values)):  # 遍历每一层函数值（先遍历群体函数值1，再遍历群体函数值2...）,
-                # 这层循环会执行i次，即value中的值个数，本问题中为2
-                # print("i = ",i)
-                valuesi = [values[i][A] for A in rank]  # 取出rank等级 对应的  目标函数值i 集合
-                # print("rank ",i," = ",valuesi)
-                rank_valuesi = zip(rank, valuesi)  # 将rank,群体函数值i集合在一起
-                sort_rank_valuesi = sorted(rank_valuesi, key=lambda x: (x[1], x[0]))  # 先按函数值大小排序，再按序号大小排序
-                # 这里先排x1再排x0，可以保证值是升序排列的
-                #    print("value ",i," = ",sort_rank_valuesi)
-                sort_ranki = [j[0] for j in sort_rank_valuesi]  # 排序后当前等级rank
-                #    print("rank = ",sort_ranki)
-                sort_valuesi = [j[1] for j in sort_rank_valuesi]  # 排序后当前等级对应的 群体函数值i
-                #    print("values = ",sort_valuesi)
-                # print(sort_ranki[0],sort_ranki[-1])
-                distance[sort_ranki[0]] = np.inf  # rank 等级 中 的最优解 距离为inf
-                distance[sort_ranki[-1]] = np.inf  # rank 等级 中 的最差解 距离为inf
 
-                # 计算rank等级中，除去最优解、最差解外。其余解的拥挤距离,注意这里是根据在某个具体函数上的表现来计算
-                # 首先这里肯定是从1到rank-1，这样会计算除了头尾的值
-                # 其次归一化之后值不可能超过1
-                # pareto前沿的性质决定了，按照value1排序得出的序列和value2是相反的。
-                # 由这里计算得出的values值，就是拥挤距离，也就是上一个解和下一个解围成的矩形周长，由于长宽分别经过归一化处理，这里dis≤2。
-                for j in range(1, len(rank) - 1):
-                    distance[sort_ranki[j]] = distance[sort_ranki[j]] + (sort_valuesi[j + 1] - sort_valuesi[j - 1]) / (
-                            max(sort_valuesi) - min(sort_valuesi))  # 计算距离
-                #   print("values ",i," 's dist =  ",distance[sort_ranki[j]])
+            # for i in range(len(values)):  # 遍历每一层函数值（先遍历群体函数值1，再遍历群体函数值2...）,
+            for i in range(len(rank)):  # 对该front里每个个体
+                min_distance = 99999.0
+                for j in range(len(rank)):
+                    if (j == i):
+                        continue
+                    dis = self.dis_3d(values[0, rank[i]], values[0, rank[j]], values[1, rank[i]], values[1, rank[j]],
+                                      values[2, rank[i]], values[2, rank[j]])
+                    if ((dis < min_distance) and (dis > 0)):
+                        max_distance = dis
+                distance[rank[i]] = min_distance
+
         # 按照格式存放distances
         distanceA = [[] for i in range(len(front))]  #
         for j in range(len(front)):  # 遍历每一层Pareto 解 rank为当前等级
@@ -1311,7 +1297,6 @@ class GaMultiobjective(object):
                 distanceA[j].append(distance[front[j][i]])
         #  print(distanceA)
         return distanceA
-
         # =============多目标优化：精英选择================
 
     def elitism(self, front, distance, solution):

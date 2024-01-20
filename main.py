@@ -6,7 +6,6 @@ import openpyxl
 from openpyxl import Workbook
 import numpy as np
 from tqdm import tqdm  # 进度条设置
-from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib
@@ -31,9 +30,7 @@ class GaMultiobjective(object):
         # self.min_x = [-10] 算法测试用例中的范围下限
         # self.max_x = [10]  算法测试用例中的范围上限
         self.Pc = 0.7  # 交叉率
-        self.min_Pc = 0.5
         self.Pm = 0.3  # 变异率
-        self.max_Pm = 0.5
         self.maxsolution = 5000
         self.N = 1  # 变量个数
         self.num_target = 40  # 区域内的目标数，可调整
@@ -69,7 +66,7 @@ class GaMultiobjective(object):
         self.pos = [[]]  # 存放目标的初始位置
         self.gain = [[]]  # 存放目标的价值评分
         self.threat = []  # 存放目标的威胁程度
-        self.ex = [2, 4, 7, 12, 16, 18, 26, 31, 34]
+        self.ex = [2,4,7,12,16,18,26,31,34]
         # self.parent = np.random.randint(0, 2, (self.NP, self.N, self.L))  # 随机获得二进制 初始种群f.shape (50,1, 20) .1表示有1个变量
 
     # 计算两点间距离
@@ -630,6 +627,7 @@ class GaMultiobjective(object):
         return seq
 
     def timewindow_ord(self, order):
+
         # seq = 最终输出序列
         seq = [[0 for i in range(2)] for i in range(self.num_target + self.singletasktarget)]
         seq = np.array(seq)
@@ -703,7 +701,7 @@ class GaMultiobjective(object):
         pointer_compdis = 0
         # 截至到这里全部匹配完，开始输入排序结果
         while (orderpos < len(order)):
-
+           # print("orderpos =",orderpos)
 
             # 侦察型，不用判断直接输入
             if (order[orderpos, 0] < (self.num_uav / 3)):
@@ -711,15 +709,12 @@ class GaMultiobjective(object):
                 pos += 1
                 orderpos += 1
             # 干扰型，顺序为侦察-干扰匹配，干扰-一体匹配
-            if ((order[pos, 0] >= (self.num_uav / 3)) and (order[pos, 0] < (self.num_uav / 3 * 2))):
+            if ((order[orderpos, 0] >= (self.num_uav / 3)) and (order[orderpos, 0] < (self.num_uav / 3 * 2))):
                 if ((dis_det_match[pointer_disdet, 0] != 0)):
                     seq[pos] = dis_det_match[pointer_disdet]
                     pos += 1
                     pointer_disdet += 1
                     orderpos += 1
-
-                if (orderpos >= (self.num_target + self.singletasktarget)):
-                    return seq
 
                 if ((dis_det_match[pointer_disdet, 0] == 0) and (comp_dis_match[pointer_compdis, 0] != 0)):
                     seq[pos] = comp_dis_match[pointer_compdis]
@@ -727,15 +722,8 @@ class GaMultiobjective(object):
                     pointer_compdis += 1
                     orderpos += 1
 
-
-            if (orderpos >= (self.num_target + self.singletasktarget)):
-                return seq
-
             # 一体型匹配，顺序为一体-干扰，一体-侦察，一体×2
             if (order[orderpos, 0] >= (self.num_uav / 3 * 2)):
-                seq[orderpos] = order[orderpos]
-                orderpos += 1
-
                 """
                 print("seq =",seq)
                 pos = dis_amt+detect_amt
@@ -756,8 +744,9 @@ class GaMultiobjective(object):
                     orderpos += 1
                     end -= 1
                 """
-
-
+                seq[orderpos] = order[orderpos]
+                orderpos += 1
+        #    print("seq =",seq)
 
         return seq
 
@@ -800,10 +789,9 @@ class GaMultiobjective(object):
         #    ord = seq
         seq = self.timewindow_ord(seq)
         ord = seq
-        #    print("ord =",ord)
+        #print("ord =",ord)
         if (flag == 0):
             return ord
-
 
         route = [0 for i in range(self.num_uav)]
         route = np.array(route)
@@ -1277,19 +1265,33 @@ class GaMultiobjective(object):
         #   print("front = ",front)
         distance = np.zeros(shape=(popsize,))  # 拥挤距离初始化为0
         for rank in front:  # 遍历每一层Pareto 解 rank为当前等级
+            # print("rank ",rank)
+            for i in range(len(values)):  # 遍历每一层函数值（先遍历群体函数值1，再遍历群体函数值2...）,
+                # 这层循环会执行i次，即value中的值个数，本问题中为2
+                # print("i = ",i)
+                valuesi = [values[i][A] for A in rank]  # 取出rank等级 对应的  目标函数值i 集合
+                # print("rank ",i," = ",valuesi)
+                rank_valuesi = zip(rank, valuesi)  # 将rank,群体函数值i集合在一起
+                sort_rank_valuesi = sorted(rank_valuesi, key=lambda x: (x[1], x[0]))  # 先按函数值大小排序，再按序号大小排序
+                # 这里先排x1再排x0，可以保证值是升序排列的
+                #    print("value ",i," = ",sort_rank_valuesi)
+                sort_ranki = [j[0] for j in sort_rank_valuesi]  # 排序后当前等级rank
+                #    print("rank = ",sort_ranki)
+                sort_valuesi = [j[1] for j in sort_rank_valuesi]  # 排序后当前等级对应的 群体函数值i
+                #    print("values = ",sort_valuesi)
+                # print(sort_ranki[0],sort_ranki[-1])
+                distance[sort_ranki[0]] = np.inf  # rank 等级 中 的最优解 距离为inf
+                distance[sort_ranki[-1]] = np.inf  # rank 等级 中 的最差解 距离为inf
 
-            # for i in range(len(values)):  # 遍历每一层函数值（先遍历群体函数值1，再遍历群体函数值2...）,
-            for i in range(len(rank)):  # 对该front里每个个体
-                min_distance = 99999.0
-                for j in range(len(rank)):
-                    if (j == i):
-                        continue
-                    dis = self.dis_3d(values[0, rank[i]], values[0, rank[j]], values[1, rank[i]], values[1, rank[j]],
-                                      values[2, rank[i]], values[2, rank[j]])
-                    if ((dis < min_distance) and (dis > 0)):
-                        max_distance = dis
-                distance[rank[i]] = min_distance
-
+                # 计算rank等级中，除去最优解、最差解外。其余解的拥挤距离,注意这里是根据在某个具体函数上的表现来计算
+                # 首先这里肯定是从1到rank-1，这样会计算除了头尾的值
+                # 其次归一化之后值不可能超过1
+                # pareto前沿的性质决定了，按照value1排序得出的序列和value2是相反的。
+                # 由这里计算得出的values值，就是拥挤距离，也就是上一个解和下一个解围成的矩形周长，由于长宽分别经过归一化处理，这里dis≤2。
+                for j in range(1, len(rank) - 1):
+                    distance[sort_ranki[j]] = distance[sort_ranki[j]] + (sort_valuesi[j + 1] - sort_valuesi[j - 1]) / (
+                            max(sort_valuesi) - min(sort_valuesi))  # 计算距离
+                #   print("values ",i," 's dist =  ",distance[sort_ranki[j]])
         # 按照格式存放distances
         distanceA = [[] for i in range(len(front))]  #
         for j in range(len(front)):  # 遍历每一层Pareto 解 rank为当前等级
@@ -1297,6 +1299,7 @@ class GaMultiobjective(object):
                 distanceA[j].append(distance[front[j][i]])
         #  print(distanceA)
         return distanceA
+
         # =============多目标优化：精英选择================
 
     def elitism(self, front, distance, solution):
@@ -1348,14 +1351,12 @@ class GaMultiobjective(object):
         hv = 0.0
         volume = 0.0
         for i in range(0, num):
-
-            volume = (30 - front[i, 0]) * (18 - front[i, 1]) * (18 - front[i,2])
-         #   if (i > 0):
-         #       volume = (30 - front[i, 0]) * (front[i - 1, 1] - front[i, 1]) * (front[i-1,2] - front[i,2])
+            if (i == 0):
+                volume = (24 - front[i, 0]) * (15 - front[i, 1])
+            if (i > 0):
+                volume = (24 - front[i, 0]) * (front[i - 1, 1] - front[i, 1])
 
             hv = hv + volume
-        hv = hv/num
-        print("hv =",hv)
 
         return hv
 
@@ -1466,12 +1467,6 @@ class GaMultiobjective(object):
         success = np.array(success)
         HV = [0.0 for i in range(self.max_gen)]
         HV = np.array(HV)
-        pm_trigger = 0
-        pc_trigger = 0
-        last_front = []
-        cnt = 0
-        pm = self.Pm
-        pc = self.Pc
 
         hv = 0.0
         gen = 0
@@ -1486,8 +1481,6 @@ class GaMultiobjective(object):
 
         for j in tqdm(range(self.max_gen)):
             plt.clf()
-            if (pm_trigger == 0):
-                pm = self.Pm + (self.max_Pm - self.Pm) * (gen / self.max_gen)
             #    print("第 ",gen," 代交叉前个体 =",parenttwo[0])
 
             # 这里等于是错误的把parent2的值改变了，变成了x1，然后等于把2个一样的种群合一起了
@@ -1500,24 +1493,19 @@ class GaMultiobjective(object):
 
             #    print("第 ", gen, " 代交叉前pr2 =", pr2[0])
             for i in range(0, self.NP, 2):
-                if (pc_trigger == 0):
-                    father1 = i  # 随机选择一个（0-NP）之间的整数
-                    father2 = i + 1  # 随机选择一个（0-NP）之间的整数
-                # 种群内个体集中已经达到一定数值
-                if (pc_trigger == 1):
-                    father1 = random.randint(0, self.NP - 1)
-                    father2 = random.randint(0, self.NP - 1)
-                    # 重新选择第2个个体来进行交叉变异过程
-                    while (np.array_equal(pr2[father1], pr2[father2])):
-                        father2 = random.randint(0, self.NP - 1)
+                if (gen == 0):
+                    father1 = np.random.randint(0, self.NP, 1)[0]  # 随机选择一个（0-NP）之间的整数
+                    father2 = np.random.randint(0, self.NP, 1)[0]  # 随机选择一个（0-NP）之间的整数
+                    while (father1 == father2):
+                        father2 = np.random.randint(0, self.NP, 1)[0]  # 随机出来一个不一样的就行
 
-                p1 = np.random.random()
-                p2 = np.random.random()
-                if (p1 < pc):
+                p = np.random.random()
+                if (p < self.Pc):
                     child[i], child[i + 1] = self.crossover(pr2[father1], pr2[father2])
-                if (p2 > 1 - pm):
-                    child[i] = self.Mutation(pr2[father1], 0.1)
-                    child[i + 1] = self.Mutation(pr2[father2], 0.1)
+                if (p > self.Pc):
+                    child[i] = self.Mutation(pr2[father1], self.Pm)
+                    child[i + 1] = self.Mutation(pr2[father2], self.Pm)
+
             #    X1 = self.Crossover(parenttwo, self.Pc)  # 交叉操作 X1为交叉后群体
             #    print("第 ", gen, " 代x1操作后个体 =", X1[0])
             #    print("第 ", gen, "代x1后parent =", parenttwo[0])
@@ -1565,49 +1553,11 @@ class GaMultiobjective(object):
             f3_min[gen] = np.min(values3)
 
             values = [values1, values2, values3]
-            values = np.array(values)
             # 到这里，的确是算出了100个数值
 
             front = self.fast_non_dominated_sort(values)
             ans = front[0]  # 保存这代最佳个体
             front_0 = np.unique(front[0])
-
-            if ((len(ans) / self.NP) >= 0.9357):
-                pc_trigger = 1
-            if ((len(ans) / self.NP) < 0.9357):
-                pc_trigger = 0
-
-            sol = []
-            for i in range(len(front_0)):
-                v1 = values[0, front_0[i]]
-                v2 = values[1, front_0[i]]
-                v3 = values[2, front_0[i]]
-                sol.append([v1, v2,v3])
-
-            front_0_sol = np.array(sol)
-            front_0_val = np.unique(front_0_sol, axis=0)
-            front_0_sorted = sorted(front_0_val, key=lambda x: (x[1], x[0]), reverse=True)
-            front_0_sorted = np.array(front_0_sorted)
-            if (gen == 0):
-                last_front = front_0_sorted
-                last_front = np.array(last_front)
-            if (gen >= 1):
-                if (np.array_equal(front_0_sorted, last_front) == True):
-                    cnt += 1
-
-                if (np.array_equal(front_0_sorted, last_front) == False):
-                    cnt = 0
-                    pm = self.Pm + (self.max_Pm - self.Pm) * (gen / self.max_gen)
-                    last_front = front_0_sorted
-                    last_front = np.array(last_front)
-                    pm_trigger = 0
-            if (cnt >= 5):
-                pm = self.Pm + (self.max_Pm - self.Pm) * (gen / self.max_gen) + 0.1
-                if (pm >= self.max_Pm):
-                    pm = self.max_Pm
-                pm_trigger = 1
-
-           # HV[gen] = self.HV(sol, len(sol))
 
             distanceA = self.crowding_distance(values, front, 2 * self.NP)
             #    print("distanceA =",distanceA)
@@ -1669,7 +1619,7 @@ class GaMultiobjective(object):
                     ordtotal = np.concatenate((ordtemp, ord), axis=0)
 
         out = pd.DataFrame(ordtotal)
-        writer = pd.ExcelWriter('improved NSGA-II dset2 solution 15.xlsx')
+        writer = pd.ExcelWriter('NSGA-II timewindow dset 2 solution 15.xlsx')
         out.to_excel(writer, sheet_name='example1', float_format='%.4f')
         writer._save()
         writer.close()
@@ -1710,11 +1660,10 @@ class GaMultiobjective(object):
         Ans.append(resultf1)
         Ans.append(resultf2)
         Ans.append(resultf3)
-      #  Ans.append(HV)
 
         print("ans = ", Ans)
         output = pd.DataFrame(Ans)
-        writer = pd.ExcelWriter('improved NSGA-II timewindow dset2 final 15.xlsx')
+        writer = pd.ExcelWriter('NSGA-II timewindow dset2 test 15.xlsx')
         output.to_excel(writer, sheet_name='example2', float_format='%.4f')
         writer._save()
         writer.close()
